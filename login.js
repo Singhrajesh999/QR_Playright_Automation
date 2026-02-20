@@ -1,10 +1,11 @@
 const { chromium } = require('playwright');
 
 (async () => {
+
   // Launch Chrome browser
   const browser = await chromium.launch({
-    headless: false, // shows browser UI
-    channel: 'chrome' // opens Google Chrome instead of default Chromium
+    headless: false,
+    channel: 'chrome'
   });
 
   const context = await browser.newContext();
@@ -13,20 +14,40 @@ const { chromium } = require('playwright');
   // Open QuickReviewer login page
   await page.goto('https://app.quickreviewer.com/#/auth/login');
 
-  // Enter Email
-  await page.fill('input[type="email"]', 'qrtest00@gmail.com');
+  console.log("Step 1 → Blank login attempt");
 
-  // Enter Password
+  // ✅ STEP 1: Click login with blank fields
+  await page.click('button[type="submit"]');
+  await page.waitForTimeout(3000);
+
+  console.log("Step 2 → Wrong password login attempt");
+
+  // ✅ STEP 2: Enter email + wrong password
+  await page.fill('input[type="email"]', 'qrtest00@gmail.com');
+  await page.fill('input[type="password"]', 'wrongpassword123');
+
+  await page.click('button[type="submit"]');
+  await page.waitForTimeout(3000);
+
+  console.log("Step 3 → Correct login attempt");
+
+  // Clear password field
+  await page.fill('input[type="password"]', '');
+
+  // ✅ STEP 3: Enter correct password
   await page.fill('input[type="password"]', 'adobetesting');
 
-  // Click Login button
   await page.click('button[type="submit"]');
 
-  // Wait for dashboard or next page to load
+  // Wait for login success / dashboard load
   await page.waitForTimeout(5000);
 
-  console.log("Login attempted successfully!");
+  console.log("Login successful → Closing tab");
 
-  // Close browser (optional)
-  // await browser.close();
+  // Close tab (page)
+  await page.close();
+
+  // Close browser
+  await browser.close();
+
 })();
