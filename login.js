@@ -52,4 +52,4 @@ const { chromium } = require('playwright');
 
 })();
 
-console
+console.log("Login successful");
