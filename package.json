@@ -3,13 +3,27 @@
   "version": "1.0.0",
   "description": "",
   "main": "login.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
+  "scripts": {},
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
     "playwright": "^1.58.2"
-  }
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.58.2",
+    "@types/node": "^25.5.0"
+  },
+  "directories": {
+    "test": "tests"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Singhrajesh999/QR_Playright_Automation.git"
+  },
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Singhrajesh999/QR_Playright_Automation/issues"
+  },
+  "homepage": "https://github.com/Singhrajesh999/QR_Playright_Automation#readme"
 }
