@@ -5,8 +5,8 @@ test('Login → Update Subdomain → Logout', async ({ page }) => {
   // Test Data
   const email = 'qrtest00@gmail.com';
   const password = 'adobetesting';
-  const subdomain = 'lekhu';
-
+   // 🔥 Dynamic subdomain (unique every run)
+   const subdomain = `lekhu${Date.now()}`;
   // Navigate to Login Page
   await page.goto('https://app.quickreviewer.com/#/auth/login');
 

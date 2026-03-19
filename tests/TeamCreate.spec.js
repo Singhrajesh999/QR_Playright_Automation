@@ -4,91 +4,96 @@ test('Team Member Add → Edit → Delete → Logout', async ({ page }) => {
 
   const email = 'qrtest00@gmail.com';
   const password = 'adobetesting';
-  const teamEmail = 'test@yopmail.com';
 
-  // Open Login Page
+  // Team email-id
+    const teamEmail = `test@yopmail.com`;
+
+  // ---------- LOGIN ----------
   await page.goto('https://app.quickreviewer.com/#/auth/login');
-  await expect(page).toHaveURL(/login/);
 
-  // Login
-  const emailInput = page.locator('#loginEmail');
-  const passwordInput = page.locator('input[type="password"]');
-  const loginBtn = page.getByRole('button', { name: 'Login' });
+  await page.fill('#loginEmail', email);
+  await page.fill('input[type="password"]', password);
 
-  await expect(emailInput).toBeVisible();
-  await emailInput.fill(email);
+  await Promise.all([
+    page.waitForNavigation(),
+    page.getByRole('button', { name: /login/i }).click()
+  ]);
 
-  await expect(passwordInput).toBeVisible();
-  await passwordInput.fill(password);
+  // ---------- NAVIGATE ----------
+  await page.locator('span.title', { hasText: 'Team' }).click();
 
-  await loginBtn.click();
+  // ---------- ADD MEMBER ----------
+  await page.getByRole('button', { name: 'Add New' }).click();
 
-  // Verify dashboard loaded
-  const teamMenu = page.getByRole('listitem').filter({ hasText: 'Team' });
-  await expect(teamMenu).toBeVisible();
-  await teamMenu.click();
+  const modal = page.locator('.ant-modal-content');
+  await expect(modal).toBeVisible();
 
-  // Add new team member
-  const addNewBtn = page.getByRole('button', { name: 'Add New' });
-  await expect(addNewBtn).toBeVisible();
-  await addNewBtn.click();
+  // ---------- EMAIL ----------
+  const emailInput = modal.getByRole('textbox', { name: /email/i });
+  await emailInput.fill(teamEmail);
 
-  const emailTextbox = page.getByRole('textbox', { name: 'Email' });
-  await emailTextbox.fill(teamEmail);
-  await emailTextbox.press('Enter');
+  // remove focus
+  await modal.click({ position: { x: 5, y: 5 } });
 
-  // Select role
-  const roleDropdown = page.locator('.ant-select-selection-search-input').first();
-  await roleDropdown.click();
+  // ---------- SELECT ROLE (FINAL FIX) ----------
+  const roleField = modal.locator('[formcontrolname="role"]');
 
+  await expect(roleField).toBeVisible();
+
+  // 🔥 double click ensures dropdown opens
+  await roleField.click({ force: true });
+  await roleField.click({ force: true });
+
+  // select Reviewer (Playwright auto-waits)
   await page.getByText('Reviewer', { exact: true }).click();
 
-  // Save
-  const saveBtn = page.getByRole('button', { name: 'Save' });
-  await expect(saveBtn).toBeEnabled();
-  await saveBtn.click();
+  // ---------- SAVE ----------
+  await modal.getByRole('button', { name: 'Save' }).click();
 
-  // Search created user
-  const searchBox = page.getByRole('textbox', { name: 'Search' });
+  // ---------- SEARCH ----------
+  const searchBox = page.locator('input[name="searchItem"]');
   await expect(searchBox).toBeVisible();
-  await searchBox.fill(teamEmail);
-  await searchBox.press('Enter');
 
+  await searchBox.fill(teamEmail);
   await page.getByRole('button', { name: 'Search' }).click();
 
-  // Verify user exists
-  await expect(page.getByText(teamEmail)).toBeVisible();
+  const row = page.locator('tbody tr').filter({ hasText: teamEmail });
+  await expect(row).toBeVisible();
 
-  // Edit team member
-  const editBtn = page.locator('.fe-edit-2');
-  await expect(editBtn).toBeVisible();
-  await editBtn.click();
+  // ---------- EDIT ----------
+  await row.hover();
+  await row.locator('[class*="edit"]').first().click();
 
-  // Change role
-  const roleDropdownEdit = page.locator('.ant-select-selection-search-input').first();
-  await roleDropdownEdit.click();
+  const modalEdit = page.locator('.ant-modal-content');
+  await expect(modalEdit).toBeVisible();
+
+  await modalEdit.click({ position: { x: 5, y: 5 } });
+
+  const roleFieldEdit = modalEdit.locator('[formcontrolname="role"]');
+
+  await roleFieldEdit.click({ force: true });
+  await roleFieldEdit.click({ force: true });
 
   await page.getByText('Team member', { exact: true }).click();
 
-  await saveBtn.click();
+  await modalEdit.getByRole('button', { name: 'Save' }).click();
 
-  // Delete team member
-  const deleteBtn = page.locator('.ant-table-cell .fe').nth(1);
-  await expect(deleteBtn).toBeVisible();
-  await deleteBtn.click();
+  await expect(row).toBeVisible();
 
-  const confirmDelete = page.getByRole('button', { name: 'OK' });
-  await confirmDelete.click();
+  // ---------- DELETE ----------
+  await row.hover();
+  await row.locator('[class*="trash"]').first().click();
 
-  // Logout
-  const profileIcon = page.getByText('A', { exact: true });
-  await expect(profileIcon).toBeVisible();
-  await profileIcon.click();
+  await page.getByRole('button', { name: 'OK' }).click();
 
-  const logoutBtn = page.getByRole('link', { name: /logout/i });
-  await logoutBtn.click();
+  await expect(row).toHaveCount(0);
 
-  // Verify logout success
-  await expect(page).toHaveURL(/login/);
+  // ---------- LOGOUT ----------
+  await page.getByText('A', { exact: true }).click();
+
+  await Promise.all([
+    page.waitForURL(/login/),
+    page.getByRole('link', { name: /logout/i }).click()
+  ]);
 
 });

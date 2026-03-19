@@ -5,92 +5,97 @@ test('Email Group Create → Edit → Delete → Logout', async ({ page }) => {
   const email = 'qrtest00@gmail.com';
   const password = 'adobetesting';
 
-  // 🔥 Dynamic name to avoid duplicate error
   const groupName = `Test_${Date.now()}`;
+  const updatedEmail = 'test2@yopmail.com';
   const description = 'Clavis Group';
   const emails = ['test@yopmail.com', 'test1@yopmail.com'];
 
   // ---------- LOGIN ----------
   await page.goto('https://app.quickreviewer.com/#/auth/login');
-  await expect(page).toHaveURL(/login/);
 
   await page.fill('#loginEmail', email);
   await page.fill('input[type="password"]', password);
 
-  const loginBtn = page.getByRole('button', { name: 'Login' });
-  await expect(loginBtn).toBeEnabled();
-  await loginBtn.click();
+  await Promise.all([
+    page.waitForNavigation(),
+    page.getByRole('button', { name: /login/i }).click()
+  ]);
 
-  const profileIcon = page.getByText('A', { exact: true });
-  await expect(profileIcon).toBeVisible();
+  const profileIcon = page.locator('//span[text()="A"]');
+  await expect(profileIcon).toBeVisible({ timeout: 10000 });
 
   // ---------- NAVIGATION ----------
-  const mailSettings = page.getByRole('listitem').filter({ hasText: 'Mail Settings' });
+  const mailSettings = page.locator('text=Mail Settings');
+  await expect(mailSettings).toBeVisible({ timeout: 10000 });
   await mailSettings.click();
 
-  const emailGroupsTab = page.getByRole('tab', { name: 'Email Groups' });
-  await expect(emailGroupsTab).toBeVisible();
+  const emailGroupsTab = page.locator('text=Email Groups');
+  await expect(emailGroupsTab).toBeVisible({ timeout: 10000 });
   await emailGroupsTab.click();
 
   // ---------- CREATE GROUP ----------
-  const newGroupBtn = page.getByRole('button', { name: 'New Group' });
-  await newGroupBtn.click();
+  await page.getByRole('button', { name: /new group/i }).click();
 
-  const nameInput = page.getByRole('textbox', { name: /Name/i });
-  const descInput = page.getByRole('textbox', { name: /Description/i });
-  const emailInput = page.getByRole('combobox', { name: /Enter email address/i });
-
-  await expect(nameInput).toBeVisible();
+  const nameInput = page.getByRole('textbox', { name: /name/i });
+  const descInput = page.getByRole('textbox', { name: /description/i });
+  const emailInput = page.getByRole('combobox', { name: /enter email/i });
 
   await nameInput.fill(groupName);
   await descInput.fill(description);
 
-  // Add emails
   for (const mail of emails) {
     await emailInput.fill(mail);
     await emailInput.press('Enter');
   }
 
-  const saveBtn = page.getByRole('button', { name: 'Save' });
-  await saveBtn.click();
+  await page.getByRole('button', { name: /save/i }).click();
 
-  // ✅ Wait for table refresh
-  const groupRow = page.locator('tr', { hasText: groupName }).first();
-  await expect(groupRow).toBeVisible();
+  // ---------- VERIFY CREATED ----------
+  const groupRow = page.locator('tbody tr').filter({
+    hasText: groupName
+  });
+
+  await expect(groupRow).toBeVisible({ timeout: 15000 });
+  await expect(groupRow).toContainText(description);
 
   // ---------- EDIT GROUP ----------
-  const editBtn = groupRow.locator('.fe-edit-2');
-  await expect(editBtn).toBeVisible();
-  await editBtn.click();
+  await groupRow.locator('[class*="edit"]').first().click();
 
-  const emailInputEdit = page.getByRole('combobox', { name: /Enter email address/i });
+  const emailInputEdit = page.getByRole('combobox', { name: /enter email/i });
   await expect(emailInputEdit).toBeVisible();
 
-  await emailInputEdit.fill('test2@yopmail.com');
+  await emailInputEdit.fill(updatedEmail);
   await emailInputEdit.press('Enter');
 
-  await saveBtn.click();
+  await page.getByRole('button', { name: /save/i }).click();
 
-  // ✅ Assert updated email visible
-  await expect(groupRow).toContainText('test2@yopmail.com');
+  // ✅ Correct validation (email not visible in table)
+  await expect(groupRow).toBeVisible();
+
+  // 🔥 Strong validation → reopen & verify email
+  await groupRow.locator('[class*="edit"]').first().click();
+  await expect(page.getByText(updatedEmail)).toBeVisible();
+
+  // Close modal (if needed)
+  await page.keyboard.press('Escape');
 
   // ---------- DELETE GROUP ----------
-  const deleteBtn = groupRow.locator('.fe-trash');
-  await deleteBtn.click();
+  await groupRow.locator('[class*="trash"]').first().click();
 
-  const confirmBtn = page.getByRole('button', { name: 'OK' });
+  const confirmBtn = page.getByRole('button', { name: /ok/i });
   await expect(confirmBtn).toBeVisible();
   await confirmBtn.click();
 
-  // ✅ Wait for row to disappear
-  await expect(groupRow).toBeHidden();
+  // ---------- VERIFY DELETE ----------
+  await expect(groupRow).toHaveCount(0, { timeout: 10000 });
 
   // ---------- LOGOUT ----------
   await profileIcon.click();
 
-  const logoutBtn = page.getByRole('link', { name: /logout/i });
-  await logoutBtn.click();
+  await Promise.all([
+    page.waitForURL(/login/),
+    page.getByRole('link', { name: /logout/i }).click()
+  ]);
 
   await expect(page).toHaveURL(/login/);
-
 });

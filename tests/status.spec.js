@@ -61,12 +61,24 @@ test('Create, Edit and Delete Status', async ({ page }) => {
 
   await expect(page.getByText('Test Status2')).toBeVisible();
 
-  // -------- Delete Status --------
+  // ---------- DELETE STATUS ----------
 
-  await page.locator('.fe-trash').first().click();
+const row = page.locator('tbody tr').filter({
+  hasText: 'Test Status2'
+});
 
-  await page.getByRole('button', { name: 'OK' }).click();
+await expect(row).toBeVisible();
 
-  await expect(page.getByText('Test Status2')).not.toBeVisible();
+// 🔥 important (icons visible after hover)
+await row.hover();
+
+// click trash icon inside row
+await row.locator('[class*="trash"]').click();
+
+// confirm delete
+await page.getByRole('button', { name: 'OK' }).click();
+
+// verify delete
+await expect(row).toHaveCount(0);
 
 });
