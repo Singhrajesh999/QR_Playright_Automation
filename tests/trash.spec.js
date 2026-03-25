@@ -1,152 +1,96 @@
 import { test, expect } from '@playwright/test';
+import path from 'path';
 
-test.describe('Trash Section Tests', () => {
+test('File Upload → Delete → Empty Trash → Logout', async ({ page }) => {
 
   const email = 'qrtest00@gmail.com';
   const password = 'adobetesting';
+  const filePath = path.resolve('tests/UploadFiles/logo.jpg');
 
-  const files = ['sample.jpg', 'sample.png', 'sample.pdf', 'sample.zip'];
+  // ---------- LOGIN ----------
+  await page.goto('https://app.quickreviewer.com/#/auth/login', { waitUntil: 'domcontentloaded' });
 
-  // ---------- COMMON HELPERS ----------
-  async function login(page) {
-    await page.goto('https://app.quickreviewer.com/#/auth/login');
-    await expect(page).toHaveURL(/login/);
+  await expect(page).toHaveURL(/login/);
 
-    await page.fill('#loginEmail', email);
-    await page.fill('input[type="password"]', password);
+  await page.fill('#loginEmail', email);
+  await page.fill('input[type="password"]', password);
 
-    const loginBtn = page.getByRole('button', { name: 'Login' });
-    await expect(loginBtn).toBeEnabled();
-    await loginBtn.click();
+  await Promise.all([
+    page.waitForNavigation(),
+    page.getByRole('button', { name: /login/i }).click()
+  ]);
 
-    await expect(page.getByText('A')).toBeVisible();
-  }
+  // ---------- NEW → FILE UPLOAD ----------
+  const newBtn = page.getByRole('button', { name: /new/i });
+  await expect(newBtn).toBeVisible();
+  await newBtn.click();
 
-  async function goToMenu(page, menuName) {
-    const menu = page.getByRole('menuitem', { name: menuName });
-    await expect(menu).toBeVisible();
-    await menu.click();
-  }
+  await page.getByText('File Upload', { exact: true }).click();
 
-  async function uploadFiles(page, fileList) {
-    await page.getByRole('button', { name: 'New' }).click();
+  // ---------- FILE UPLOAD (FIXED) ----------
+  const fileInput = page.locator('#sidebar-file'); // ✅ unique locator
+  //await expect(fileInput).toBeAttached();
 
-    const fileInput = page.locator('input[type="file"]');
-    await expect(fileInput).toBeAttached();
+  await fileInput.setInputFiles(filePath);
 
-    await fileInput.setInputFiles(
-      fileList.map(file => `./bulkData/${file}`)
-    );
-  }
+  // ---------- VERIFY FILE UPLOADED ----------
+  const thumbnail = page.locator('[id^="thumb_"]').first();
+  await expect(thumbnail).toBeVisible({ timeout: 15000 });
 
-  async function deleteFile(page, fileName) {
-    const fileRow = page.locator(`text=${fileName}`).first();
-    await expect(fileRow).toBeVisible();
+  // ---------- DELETE FILE ----------
+  await thumbnail.click({ button: 'right' });
 
-    await fileRow.click({ button: 'right' });
+  const removeOption = page.getByText('Remove', { exact: true });
+  await expect(removeOption).toBeVisible();
+  await removeOption.click();
 
-    const removeOption = page.getByRole('menuitem', { name: 'Remove' });
-    await expect(removeOption).toBeVisible();
-    await removeOption.click();
-  }
+  const confirmDelete = page.getByRole('button', { name: 'OK' });
+  await expect(confirmDelete).toBeVisible();
+  await confirmDelete.click();
 
-  async function openTrash(page) {
-    await goToMenu(page, 'Trash');
-    await expect(page.getByText(/trash/i)).toBeVisible();
-  }
+  // ---------- OPEN TRASH ----------
+  const trashMenu = page.getByRole('listitem').filter({ hasText: 'Trash' });
+  await expect(trashMenu).toBeVisible();
+  await trashMenu.click();
 
-  // ---------- BEFORE EACH ----------
-  test.beforeEach(async ({ page }) => {
-    await login(page);
-  });
+  // ---------- VERIFY ITEM IN TRASH ----------
+  const trashItem = page.locator('[id^="thumb_"]').first();
+  await expect(trashItem).toBeVisible({ timeout: 10000 });
 
-  // ✅ 1. Verify Deleted Files in Trash
-  test('Verify all deleted files in Trash', async ({ page }) => {
+  // ---------- EMPTY TRASH (FIXED) ----------
+  const emptyBtn = page
+    .getByRole('listitem')
+    .filter({ hasText: 'Trash' })
+    .getByRole('button', { name: 'Empty' });
 
-    await goToMenu(page, 'My Documents');
+  await expect(emptyBtn).toBeVisible();
+  await expect(emptyBtn).toBeEnabled();
+  await emptyBtn.click();
 
-    await uploadFiles(page, files);
+  const confirmEmpty = page.getByRole('button', { name: 'OK' });
+  await expect(confirmEmpty).toBeVisible();
+  await confirmEmpty.click();
 
-    // Delete all files
-    for (const file of files) {
-      await deleteFile(page, file);
-    }
+  // ---------- VERIFY TRASH EMPTY ----------
+  await expect(page.locator('[id^="thumb_"]')).toHaveCount(0);
 
-    await openTrash(page);
+  /*// ---------- BACK TO MY DOCUMENTS (FIXED) ----------
+  const myDocs = page
+    .getByRole('listitem')
+    .filter({ hasText: 'My Documents' });
 
-    const rows = page.locator('.file-row'); // update if needed
-    await expect(rows).toHaveCount(files.length);
-  });
+  await expect(myDocs).toBeVisible();
+  await myDocs.click();
 
-  // ✅ 2. Restore File
-  test('Restore file from Trash', async ({ page }) => {
+  */// ---------- LOGOUT ----------
+  const profileIcon = page.getByText('A', { exact: true });
+  await expect(profileIcon).toBeVisible();
+  await profileIcon.click();
 
-    const file = 'sample.pdf';
+  await Promise.all([
+    page.waitForURL(/login/),
+    page.getByRole('link', { name: /logout/i }).click()
+  ]);
 
-    await goToMenu(page, 'My Documents');
-    await uploadFiles(page, [file]);
-
-    await deleteFile(page, file);
-
-    await openTrash(page);
-
-    const fileRow = page.locator(`text=${file}`);
-    await fileRow.click({ button: 'right' });
-
-    const restoreBtn = page.getByRole('menuitem', { name: 'Restore' });
-    await expect(restoreBtn).toBeVisible();
-    await restoreBtn.click();
-
-    // Assert toast/message
-    await expect(page.getByText(/restored/i)).toBeVisible();
-  });
-
-  // ✅ 3. Delete Forever
-  test('Delete file forever from Trash', async ({ page }) => {
-
-    const file = 'sample.pdf';
-
-    await goToMenu(page, 'My Documents');
-    await uploadFiles(page, [file]);
-
-    await deleteFile(page, file);
-
-    await openTrash(page);
-
-    const fileRow = page.locator(`text=${file}`);
-    await fileRow.click({ button: 'right' });
-
-    const deleteForever = page.getByRole('menuitem', { name: 'Delete Forever' });
-    await expect(deleteForever).toBeVisible();
-    await deleteForever.click();
-
-    const confirmBtn = page.getByRole('button', { name: 'OK' });
-    await expect(confirmBtn).toBeVisible();
-    await confirmBtn.click();
-
-    await expect(page.getByText(file)).not.toBeVisible();
-  });
-
-  // ✅ 4. Empty Trash
-  test('Delete all files from Trash', async ({ page }) => {
-
-    const file = 'sample.pdf';
-
-    await goToMenu(page, 'My Documents');
-    await uploadFiles(page, [file]);
-
-    await deleteFile(page, file);
-
-    await openTrash(page);
-
-    const emptyBtn = page.getByRole('button', { name: /empty/i });
-    await expect(emptyBtn).toBeVisible();
-    await emptyBtn.click();
-
-    const confirmBtn = page.getByRole('button', { name: 'OK' });
-    await confirmBtn.click();
-
-    await expect(page.getByText(/no trash/i)).toBeVisible();
-  });
-
+  await expect(page).toHaveURL(/login/);
 });

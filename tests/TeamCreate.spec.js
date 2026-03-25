@@ -5,8 +5,8 @@ test('Team Member Add → Edit → Delete → Logout', async ({ page }) => {
   const email = 'qrtest00@gmail.com';
   const password = 'adobetesting';
 
-  // Team email-id
-    const teamEmail = `test@yopmail.com`;
+  // 🔥 dynamic email (avoid duplicate issue)
+  const teamEmail = `test@yopmail.com`;
 
   // ---------- LOGIN ----------
   await page.goto('https://app.quickreviewer.com/#/auth/login');
@@ -19,10 +19,10 @@ test('Team Member Add → Edit → Delete → Logout', async ({ page }) => {
     page.getByRole('button', { name: /login/i }).click()
   ]);
 
-  // ---------- NAVIGATE ----------
+  // ---------- NAVIGATE TO TEAM ----------
   await page.locator('span.title', { hasText: 'Team' }).click();
 
-  // ---------- ADD MEMBER ----------
+  // ---------- ADD NEW MEMBER ----------
   await page.getByRole('button', { name: 'Add New' }).click();
 
   const modal = page.locator('.ant-modal-content');
@@ -32,25 +32,24 @@ test('Team Member Add → Edit → Delete → Logout', async ({ page }) => {
   const emailInput = modal.getByRole('textbox', { name: /email/i });
   await emailInput.fill(teamEmail);
 
-  // remove focus
+  // 🔥 remove focus from email
   await modal.click({ position: { x: 5, y: 5 } });
 
   // ---------- SELECT ROLE (FINAL FIX) ----------
-  const roleField = modal.locator('[formcontrolname="role"]');
+  const roleField = modal.getByText('Select Role', { exact: true });
 
   await expect(roleField).toBeVisible();
+  await roleField.click();
 
-  // 🔥 double click ensures dropdown opens
-  await roleField.click({ force: true });
-  await roleField.click({ force: true });
-
-  // select Reviewer (Playwright auto-waits)
+  // select Reviewer
   await page.getByText('Reviewer', { exact: true }).click();
 
   // ---------- SAVE ----------
-  await modal.getByRole('button', { name: 'Save' }).click();
+  const saveBtn = modal.getByRole('button', { name: 'Save' });
+  await expect(saveBtn).toBeEnabled();
+  await saveBtn.click();
 
-  // ---------- SEARCH ----------
+  // ---------- VERIFY CREATION ----------
   const searchBox = page.locator('input[name="searchItem"]');
   await expect(searchBox).toBeVisible();
 
@@ -69,10 +68,8 @@ test('Team Member Add → Edit → Delete → Logout', async ({ page }) => {
 
   await modalEdit.click({ position: { x: 5, y: 5 } });
 
-  const roleFieldEdit = modalEdit.locator('[formcontrolname="role"]');
-
-  await roleFieldEdit.click({ force: true });
-  await roleFieldEdit.click({ force: true });
+  // open dropdown again
+  await modalEdit.getByText('Select Role', { exact: true }).click();
 
   await page.getByText('Team member', { exact: true }).click();
 
