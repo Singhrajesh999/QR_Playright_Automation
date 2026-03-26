@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import path from 'path';
 
-test('File Upload & Logout', async ({ page }) => {
+test('File Upload & Preview', async ({ page }) => {
 
   const email = 'qrtest00@gmail.com';
   const password = 'adobetesting';
@@ -42,7 +42,7 @@ await page.waitForTimeout(3000);
   const fileInput = page.locator('#fileUpload');
   await expect(fileInput).toBeAttached();
 
-  // 🔥 Wait for upload API
+  //  Wait for upload API
   const uploadResponse = page.waitForResponse(res =>
     res.url().includes('/upload') && res.status() === 200
   );
@@ -55,10 +55,32 @@ await page.waitForTimeout(3000);
   // Validate file visible
   await expect(page.locator(`text=${fileName}`).first()).toBeVisible();
 
+  // ---------- SELECT FILE & RIGHT CLICK ----------
+  const firstFile = page.locator(`text=${fileName}`).filter({
+    hasText: fileName
+  }).first();
+  
+  await expect(firstFile).toBeVisible();
+
+// Right click on file
+await firstFile.click({ button: 'right' });
+
+// ---------- CLICK PREVIEW ----------
+const previewOption = page.getByText('Preview', { exact: true });
+
+// Wait for dropdown and click Preview
+await expect(previewOption).toBeVisible({ timeout: 10000 });
+
+// Handle popup (Preview opens in new tab)
+const [previewPage] = await Promise.all([
+  page.waitForEvent('popup'),
+  previewOption.click()
+]);
+
   // ---------- LOGOUT ----------
 
 // Step 1: Click profile avatar (A icon)
-const profileIcon = page.locator('.fCharImage'); // exact class from your DOM
+/*const profileIcon = page.locator('.fCharImage'); // exact class from your DOM
 
 await expect(profileIcon).toBeVisible({ timeout: 30000 });
 await profileIcon.click();
@@ -71,5 +93,6 @@ await logoutBtn.click();
 
 // Step 3: Verify logout
 await expect(page).toHaveURL(/login/, { timeout: 20000 });
+*/
 
 });

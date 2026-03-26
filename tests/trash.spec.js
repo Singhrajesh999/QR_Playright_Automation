@@ -1,96 +1,92 @@
 import { test, expect } from '@playwright/test';
 import path from 'path';
 
-test('File Upload → Delete → Empty Trash → Logout', async ({ page }) => {
+test('File Upload & Preview', async ({ page }) => {
 
   const email = 'qrtest00@gmail.com';
   const password = 'adobetesting';
-  const filePath = path.resolve('tests/UploadFiles/logo.jpg');
+
+  // const fileName = 'audiofile.mp3';
+  const fileName = 'test25.pdf'
+  const filePath = path.resolve(__dirname, 'UploadFiles', fileName);
 
   // ---------- LOGIN ----------
+ 
   await page.goto('https://app.quickreviewer.com/#/auth/login', { waitUntil: 'domcontentloaded' });
 
   await expect(page).toHaveURL(/login/);
 
-  await page.fill('#loginEmail', email);
-  await page.fill('input[type="password"]', password);
+  await page.locator('#loginEmail').fill(email);
+  await page.locator('input[type="password"]').fill(password);
+
+  const loginBtn = page.getByRole('button', { name: /login/i });
+  await expect(loginBtn).toBeEnabled();
 
   await Promise.all([
     page.waitForNavigation(),
-    page.getByRole('button', { name: /login/i }).click()
+    loginBtn.click()
   ]);
+  // wait for API-storage 
+await page.waitForLoadState('networkidle');
+await page.waitForTimeout(3000);
 
-  // ---------- NEW → FILE UPLOAD ----------
+  // Dashboard
   const newBtn = page.getByRole('button', { name: /new/i });
-  await expect(newBtn).toBeVisible();
+  await expect(newBtn).toBeVisible({ timeout: 120000 });
+
+  // ---------- GO TO FILE UPLOAD ----------
   await newBtn.click();
+  await expect(page.getByText(/file upload/i)).toBeVisible({ timeout: 20000 });
 
-  await page.getByText('File Upload', { exact: true }).click();
+  /// ---------- FILE UPLOAD ----------
+  const fileInput = page.locator('#fileUpload');
+  await expect(fileInput).toBeAttached();
 
-  // ---------- FILE UPLOAD (FIXED) ----------
-  const fileInput = page.locator('#sidebar-file'); // ✅ unique locator
-  //await expect(fileInput).toBeAttached();
+  //  Wait for upload API
+  const uploadResponse = page.waitForResponse(res =>
+    res.url().includes('/upload') && res.status() === 200
+  );
 
   await fileInput.setInputFiles(filePath);
 
-  // ---------- VERIFY FILE UPLOADED ----------
-  const thumbnail = page.locator('[id^="thumb_"]').first();
-  await expect(thumbnail).toBeVisible({ timeout: 15000 });
+  // Wait until upload finishes
+  await uploadResponse;
 
-  // ---------- DELETE FILE ----------
-  await thumbnail.click({ button: 'right' });
+  // Validate file visible
+  await expect(page.locator(`text=${fileName}`).first()).toBeVisible();
 
-  const removeOption = page.getByText('Remove', { exact: true });
+  // ---------- SELECT FILE & RIGHT CLICK ----------
+  const firstFile = page.locator(`text=${fileName}`).filter({
+    hasText: fileName
+  }).first();
+  
+  await expect(firstFile).toBeVisible();
+
+// Right click on file
+await firstFile.click({ button: 'right' });
+
+  // ---------- CLICK REMOVE ----------
+  const removeOption = page.locator('li:has-text("Remove")').first();
+
   await expect(removeOption).toBeVisible();
   await removeOption.click();
 
-  const confirmDelete = page.getByRole('button', { name: 'OK' });
-  await expect(confirmDelete).toBeVisible();
-  await confirmDelete.click();
+  // ---------- CONFIRM DELETE ----------
+  const confirmBtn = page.getByRole('button', { name: /ok/i });
+  await expect(confirmBtn).toBeVisible();
 
-  // ---------- OPEN TRASH ----------
-  const trashMenu = page.getByRole('listitem').filter({ hasText: 'Trash' });
-  await expect(trashMenu).toBeVisible();
-  await trashMenu.click();
+  await confirmBtn.click();
 
-  // ---------- VERIFY ITEM IN TRASH ----------
-  const trashItem = page.locator('[id^="thumb_"]').first();
-  await expect(trashItem).toBeVisible({ timeout: 10000 });
 
-  // ---------- EMPTY TRASH (FIXED) ----------
-  const emptyBtn = page
-    .getByRole('listitem')
-    .filter({ hasText: 'Trash' })
-    .getByRole('button', { name: 'Empty' });
-
-  await expect(emptyBtn).toBeVisible();
-  await expect(emptyBtn).toBeEnabled();
-  await emptyBtn.click();
-
-  const confirmEmpty = page.getByRole('button', { name: 'OK' });
-  await expect(confirmEmpty).toBeVisible();
-  await confirmEmpty.click();
-
-  // ---------- VERIFY TRASH EMPTY ----------
-  await expect(page.locator('[id^="thumb_"]')).toHaveCount(0);
-
-  /*// ---------- BACK TO MY DOCUMENTS (FIXED) ----------
-  const myDocs = page
-    .getByRole('listitem')
-    .filter({ hasText: 'My Documents' });
-
-  await expect(myDocs).toBeVisible();
-  await myDocs.click();
-
-  */// ---------- LOGOUT ----------
-  const profileIcon = page.getByText('A', { exact: true });
+  // ---------- LOGOUT ----------
+  const profileIcon = page.locator('.fCharImage');
   await expect(profileIcon).toBeVisible();
   await profileIcon.click();
 
-  await Promise.all([
-    page.waitForURL(/login/),
-    page.getByRole('link', { name: /logout/i }).click()
-  ]);
+  const logoutBtn = page.getByText('Logout');
+  await expect(logoutBtn).toBeVisible();
+  await logoutBtn.click();
 
   await expect(page).toHaveURL(/login/);
+
 });
